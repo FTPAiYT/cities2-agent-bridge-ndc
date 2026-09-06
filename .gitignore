@@ -1,0 +1,9 @@
+artifacts/
+rebuilt/
+journals/
+**/bin/
+**/obj/
+*.user
+*.pdb
+*.zip
+*.sha256

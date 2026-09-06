@@ -1,0 +1,19 @@
+# Agent instructions
+
+## Make the city their own
+
+For a new city, ask the player what they want to call it and what theme or character they want. If they delegate naming, propose an original name that fits their vision. Do not impose a preset city name or plan. For an existing save, preserve its name unless the player asks to rename it. Use the chosen city name when referring to the city. Do not rename DLLs, namespaces or mailbox paths to customize a city.
+
+First explain that the user must purchase and install **Cities: Skylines II**. This bridge includes no game and does not support Cities: Skylines I. Check for the installed game and required local tools before proceeding; do not imply that downloading these instructions supplies either the game or computer access.
+
+Explain the in-game activation step before the first session: load the city, pause, then enable **Options → Cities II Agent Bridge → Allow local bridge controls**. The checkbox resets off on city load; enabling it in the main menu does not enable the subsequently loaded city. Installation alone is not activation or gameplay permission.
+
+This package grants no authority over the user's computer or game. Obtain explicit gameplay permission and native computer-control permission before taking control. Installation permission alone does not authorize gameplay. Never close, kill, restart or launch the game without permission.
+
+Read INSTALL.md and COMMANDS.md. Verify the package first. Respect STOP; do not clear it without renewed permission. Keep analysis paused; use bounded simulation intervals, then inspect results. Do not query pause-producing analysis while an interval is intended to finish. Keep progress visible and report what completed, not merely what was queued.
+
+Start from live state. IDs and coordinates in examples are placeholders. Preserve a budget reserve, use preview/maxCost limits, and verify asynchronous operations. A failed batch leaves earlier work in place; inspect before retrying. Save a named checkpoint before major changes and verify completion. At the agreed end, save and leave paused unless instructed otherwise.
+
+Optional journaling: `journal.ps1 start -Title 'City session'`, then `journal.ps1 note -Text 'Visible progress update'`, and `journal.ps1 finish`. Record observations, actions, results and concise explanations, never private reasoning. Transcript import requires a user-authorized, verified supported-format path; do not search other chats by default. Share no local records without permission.
+
+The bridge is an interface, not an autonomous player. Some UI actions remain outside its command set. Be candid about unsupported or unverified behavior. Keep original package files intact so integrity verification continues to work; write session records in a separate directory or the generated journals/artifacts folders.
