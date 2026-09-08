@@ -29,7 +29,7 @@ $rsp = Join-Path $out 'compile.rsp'
 & dotnet $compiler ('@' + $rsp)
 if ($LASTEXITCODE -ne 0) { throw 'Compilation failed' }
 $manifest = [ordered]@{
-    modVersion = '0.4.1'
+    modVersion = '0.4.2'
     builtUtc = [DateTime]::UtcNow.ToString('O')
     gameAssemblySha256 = (Get-FileHash -LiteralPath (Join-Path $managed 'Game.dll')).Hash
     dllSha256 = (Get-FileHash -LiteralPath (Join-Path $out 'CitiesIIAgentBridge.dll')).Hash
@@ -37,8 +37,3 @@ $manifest = [ordered]@{
 }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $out 'build-manifest.json') -Encoding utf8
 Write-Output "Built: $(Join-Path $out 'CitiesIIAgentBridge.dll')"
-
-
-
-
-

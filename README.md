@@ -47,9 +47,9 @@ Includes compiled mod, source, installation and control scripts, command referen
 
 ## Compatibility and evidence
 
-Version 0.4.1 adds recovery from temporary Windows mailbox file locks. A busy heartbeat file no longer disables controls; STOP and bounded simulation deadlines remain active, and pending responses are retained without replaying commands. Recovery never enables controls automatically.
+The current 0.4.2 source also repairs retained building-relocation state and rejects mismatched previews before application. The latest downloadable release remains the earlier published package until a new binary release is validated. Version 0.4.1 adds recovery from temporary Windows mailbox file locks. A busy heartbeat file no longer disables controls; STOP and bounded simulation deadlines remain active, and pending responses are retained without replaying commands. Recovery never enables controls automatically.
 
-The earlier 0.4.0 development build was used in Windows / Steam / Cities: Skylines II 1.6.0f1 sessions for roads, zoning, service buildings, power connections, budgets, bounded simulation and checkpoint saves. The 0.4.1 recovery behavior has passed offline tests but has not been verified in-game. This is not a claim that every exposed command works in every scenario.
+The earlier 0.4.0 development build was used in Windows / Steam / Cities: Skylines II 1.6.0f1 sessions for roads, zoning, service buildings, power connections, budgets, bounded simulation and checkpoint saves. The new placement adapter and mailbox recovery have passed offline tests; the rebuilt community binary has not been verified in-game. This is not a claim that every exposed command works in every scenario.
 
 This community DLL is rebuilt without debug symbols to remove the developer's embedded PDB path. This standalone community build uses neutral names for its assembly, namespaces, mailbox, tools and save prefixes. It compiles against the same game assembly fingerprint. The community binary and installer have not been tested on another person's PC or loaded into a fresh game session. See RELEASE-NOTES.md for package validation results. Other game versions and conflicting mods are unverified. The installer checks the local Game.dll fingerprint and refuses a mismatch.
 

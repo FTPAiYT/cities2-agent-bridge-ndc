@@ -103,3 +103,6 @@ Recommended loop:
 `advance.ps1` never automatically retries simulation. On a client deadline it requests cancellation once and reports if pause cannot be confirmed. A fully hung game thread cannot execute its watchdog until it resumes; the independent client deadline prevents indefinite waiting.
 
 
+
+## Building preview identity (0.4.2 source)
+Creation and relocation validate the requested prefab and original entity before application or successful preview-only completion. Results include expectedPrefab, expectedOriginal and previewBuildings. A mismatch fails without application; inspect the result before retrying. allowDemolition permits collateral deletion only, never an unrelated relocation or modification.

@@ -12,7 +12,7 @@ try {
     $checks = @{
         'Game.Tools.NetToolSystem' = @{ Methods = @('SnapControlPoints','UpdateCourse'); Fields = @('m_Prefab') }
         'Game.Tools.ZoneToolSystem' = @{ Methods = @('UpdateDefinitions'); Fields = @('m_RaycastPoint','m_StartPoint','m_State','m_SnapPoint') }
-        'Game.Tools.ObjectToolSystem' = @{ Methods = @('SnapControlPoint','UpdateDefinitions'); Fields = @('m_ControlPoints','m_Rotation') }
+        'Game.Tools.ObjectToolSystem' = @{ Methods = @('SnapControlPoint','UpdateDefinitions'); Fields = @('m_ControlPoints','m_Rotation','m_MovingObject','m_MovingInitialized','m_UpgradingObject','m_TransformPrefab','m_Prefab') }
         'Game.Tools.BulldozeToolSystem' = @{ Methods = @('UpdateDefinitions'); Fields = @('m_ControlPoints') }
     }
     foreach ($name in $checks.Keys) {
@@ -28,6 +28,12 @@ try {
     }
     Write-Output 'Native construction adapter members verified against installed Game.dll.'
     $objectTool=$assembly.MainModule.Types | Where-Object FullName -eq 'Game.Tools.ObjectToolSystem'
+    $stateTypes=@{m_MovingObject='Unity.Entities.Entity';m_MovingInitialized='Unity.Entities.Entity';m_UpgradingObject='Unity.Entities.Entity';m_Prefab='Game.Prefabs.ObjectPrefab';m_TransformPrefab='Game.Prefabs.TransformPrefab'}
+    foreach($name in $stateTypes.Keys) {
+        $field=$objectTool.Fields | Where-Object Name -eq $name
+        if($field.FieldType.FullName -ne $stateTypes[$name]){throw "Object placement state type changed: $name"}
+    }
+    Write-Output 'Object placement state reset field types verified.'
     $rotation=$objectTool.NestedTypes | Where-Object Name -eq 'Rotation'
     foreach($field in @('m_Rotation','m_ParentRotation','m_IsAligned','m_IsSnapped')) {
         if(!($rotation.Fields | Where-Object Name -eq $field)){throw "Object snapping rotation contract changed: $field"}
