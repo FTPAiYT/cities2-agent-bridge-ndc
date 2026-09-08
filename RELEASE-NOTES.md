@@ -1,29 +1,25 @@
-# Community preview — release notes
+# Community preview 0.4.2 — placement state and mailbox recovery
 
-Runtime source: Cities II Agent Bridge 0.4.0. Reference game: Windows Steam Cities: Skylines II 1.6.0f1. Exact Game.dll fingerprint is in artifacts/build-manifest.json.
+Creating a new building after relocating another could retain the relocation target. The bridge calls native snapping and preview generation directly, bypassing the native update loop that clears that state. A new-building request could therefore preview a modification of the previously moved building.
 
-## Gameplay evidence from the development build
+## Placement repairs
 
-Road and industrial access construction, residential/office/industrial zoning, native service-building placement, underground electricity connection, budget adjustment, bounded simulation, city diagnostics and verified checkpoint saves were exercised in Cities II Agent. Mailboxes and bus routes were placed through native computer use, not claimed as dedicated bridge commands. City-specific records are intentionally not distributed.
+- Reset the native moving, initialized-moving, upgrade and transform state before every candidate preview. Set the working prefab used by native snapping and definition generation to the requested building.
+- Validate every root building in the preview before either reporting dry-run success or applying it. Creation requires exactly one new building of the requested prefab. Relocation requires the exact original entity and prefab. Missing, duplicate, mismatched and unintended existing-building previews are rejected.
+- Explicitly permitted collateral demolition remains supported. That permission never authorizes modifying another building or deleting the relocation target.
+- Check relocation prefab identity before starting and again when verifying completion. Record expected prefab/original and observed preview roots in the operation result for diagnosis.
+- Add 24 offline regression checks for relocation-to-create transitions, interrupted moves, consecutive different-prefab creates, changed native layouts and preview rejection rules. Verify the reset fields and their types against the installed game assembly.
 
-## Community release changes
+## Included mailbox recovery from 0.4.1
 
-- Same runtime source rebuilt without debug symbols, removing the developer PDB path from the binary. No game behavior changed for packaging.
-- Portable installer verifies package hashes and local game fingerprint, supports read-only CheckOnly and WhatIf, refuses installation while Cities2 is running, and backs up existing bridge files.
-- Agent guide, removal and stop instructions, portable test GamePath, and optional journaling scripts included.
-- Strict file allowlist excludes all personal transcripts, gameplay journals, city snapshots/saves, debug symbols, build response files and third-party game DLLs.
+Temporary Windows sharing/lock violations defer publication instead of disabling controls. STOP and bounded simulation deadlines run first. Completed responses remain pending without dispatching a command again; recovery never enables controls automatically. Regression tests exercise real file locks and the PowerShell client with isolated mailboxes.
 
-## Verification boundaries
+## Verification and limits
 
-Compilation succeeded with two existing obsolete-updater API warnings. This community binary has not been loaded in-game, and installation has not been verified on a separate PC. No game was restarted or controlled to prepare the release. Offline package/client/journal/mailbox validation is recorded in VALIDATION.txt inside the release ZIP. The existing map-viewer browser tests were not rerun for this packaging-only change.
+Both private-development and neutral-community adapters compile against the reference Windows Steam Cities: Skylines II 1.6.0f1 assembly. All 90 offline checks pass, including 24 new placement checks. A corresponding private 0.4.2 build passed the live move-A/create-B sequence, wrong-prefab relocation rejection, and creation after a native-rejected move preview. Observed entity identities, road connections and spending matched the requests. The test remained paused and unsaved.
 
-## Known limitations
+This release supplies the rebuilt neutral community DLL, source, scripts and integrity manifests. The community DLL itself has not been loaded in-game or installed on another PC. Mid-operation tool interruption, consecutive creates without an intervening move attempt, explicit collateral demolition, and other mods/game versions remain untested live. Two existing obsolete-updater warnings remain. See VALIDATION.txt for evidence and DEVELOPMENT.md for the broader live acceptance checklist.
 
-`get_services` produced a NullReferenceException during the development session; use the available city diagnostics and game UI when it fails. Static neighborhood geometry checks can miss conflicts with existing pedestrian paths. A native placement rejection requires inspection, not blind retries.
+## Other limitations
 
-Controls reset off on city load. Analysis commands pause when authorized. Native placement can fail; a queued operation is not completion. Entity IDs are session-specific. Batch work is not transactional. Geometry suggestions do not guarantee a valid native placement. Simulation and traffic need observation after construction. The exposed command set does not cover every game UI function. No compatibility guarantee exists for other game versions or mod combinations.
-
-
-## Standalone community build
-
-Assembly, namespaces, mailbox paths, tool IDs, save prefixes and documentation use neutral community names. The build is isolated from the development mod. Offline validation does not establish in-game compatibility; this binary has not been loaded in-game.
+Controls reset off on city load. Analysis commands pause when authorized. Entity IDs are session-specific. A failed batch leaves earlier work in place. Static planning can miss pedestrian paths or native placement restrictions. The command set does not cover every UI action. When native placement fails, inspect the recorded outcome rather than replaying it blindly.

@@ -1,15 +1,19 @@
-COMMUNITY PREVIEW VALIDATION — 2026-09-06
+COMMUNITY SOURCE 0.4.2 VALIDATION — 2026-09-08
 
-Standalone build: compilation, client, journal, map export, mailbox and simulation/geometry tests passed after renaming assembly, namespace, paths and tool IDs. Two existing obsolete updater API warnings remain. Installer checks and package scans are performed on the final ZIP.
-Package: file integrity verified; binary/text scanned for developer profile paths and session identifiers; no matches. Debug symbols, compile response file, city data, journals and game assemblies excluded.
-Local compatibility: CheckOnly matched the reference Game.dll fingerprint without installation or game communication.
+Build: CommunityRelease succeeded against the installed reference Game.dll without debug symbols. Two existing obsolete-updater API warnings remain.
 Mailbox: 11 checks passed.
 Simulation and geometry: 22 checks passed.
+Object placement: 24 checks passed using the production state-reset helper and preview policy. Includes move-A/create-B, interrupted move/create, consecutive different creates, exact original/prefab identity, missing/duplicate previews and permitted versus unintended demolition.
+Windows recovery: 23 checks passed using real file locks and injected transport/game faults.
+PowerShell lock recovery: 10 checks passed against isolated synthetic mailboxes. Total above: 90 checks.
 Client: 4 bounded simulation scenarios passed using fake responses.
 Map export: escaping and existing-output preservation passed offline.
-Journal: visible-only extraction, malformed-tail handling, deduplication, escaping, notes, finish and mock bridge logging passed.
-Installer (fresh ZIP extraction, unique isolated folder): WhatIf made no install writes; copy hash verified; repeat install preserved a hash-matching backup; mocked running-game guard rejected install; incompatible Game.dll rejected; modified client rejected by package integrity verification.
+Journal: extraction, malformed-tail handling, deduplication, escaping, notes, finish and mock bridge logging passed.
+API: native adapter contracts, placement reset field types and 48-command catalog passed against the installed reference assembly.
+Privacy: 49 outgoing source/document files and the rebuilt DLL scanned for private project names and developer profile paths; no matches. Community DLL has no PDB reference. Generated logs, screenshots and build response files remain excluded from source control.
 
-NOT VERIFIED: loading this rebuilt community DLL in-game; installation on another PC; every command and mod combination; other game versions. No gameplay or installed-mod changes occurred during packaging.
+NOT VERIFIED: loading the rebuilt community DLL in-game; installation on another PC; every command and mod combination; other game versions. The native-state fixture is not a live construction test. No replacement binary release ZIP was published.
 
-Internal hashes are integrity checks, not digital signatures. Compare the ZIP checksum obtained from the distributor separately.
+LIVE FOLLOW-UP — 2026-09-08: the corresponding private 0.4.2 bridge was installed, restarted and identified through ping. Its native ECS test passed relocation of an existing building followed by preview and creation of a different prefab. Preview identity was the requested prefab with null original and Create flags; exactly one new building with a road connection resulted, while the relocated building retained its entity, prefab and new position. A wrong-prefab relocation was rejected before application. After a separate native-rejected move preview, creation of another prefab also passed. Exact treasury deltas accounted only for the successful relocation and two creates; previews and rejected attempts spent nothing. The simulation remained paused at the same frame, with no game save. This validates the shared placement logic in the private runtime, not execution of the separately built community binary. Mid-operation tool interruption, consecutive creates without an intervening move attempt, and explicit collateral demolition remain untested live. Private city records and screenshots are excluded from this repository.
+
+Previous 0.4.1 source validation included the unchanged map-viewer browser tests. Those were not rerun for this placement-only change.

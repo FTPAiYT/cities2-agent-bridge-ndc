@@ -30,6 +30,8 @@ namespace CitiesIIAgentBridge
         private DateTime nextTick;
         private bool disposed;
         private bool faulted;
+        private bool mailboxContended;
+        private const string ModVersion = "0.4.2";
 
         public void OnLoad(UpdateSystem updateSystem)
         {
@@ -49,7 +51,8 @@ namespace CitiesIIAgentBridge
             updateSystem.UpdateAt<BridgeBulldozeTool>(SystemUpdatePhase.ToolUpdate);
             GameManager.instance.onGamePreload += OnPreload;
             GameManager.instance.RegisterUpdater(updater);
-            mailbox.Publish(new JObject { ["status"] = "starting", ["modVersion"] = "0.4.0" });
+            try { mailbox.Publish(new JObject { ["status"] = "starting", ["modVersion"] = ModVersion }); }
+            catch (IOException e) when (Mailbox.IsSharingViolation(e)) { MailboxContention(e); }
             log.Info("Bridge loaded; mailbox: " + root);
         }
 
@@ -75,7 +78,7 @@ namespace CitiesIIAgentBridge
                 GameManager.instance.onGamePreload -= OnPreload;
             }
             settings?.UnregisterInOptionsUI();
-            try { mailbox?.Publish(new JObject { ["status"] = "stopped", ["modVersion"] = "0.4.0" }); }
+            try { mailbox?.Publish(new JObject { ["status"] = "stopped", ["modVersion"] = ModVersion }); }
             catch (Exception e) { log?.Warn(e.Message); }
             log?.Info("Bridge disposed");
         }
@@ -87,29 +90,41 @@ namespace CitiesIIAgentBridge
             nextTick = DateTime.UtcNow.AddMilliseconds(250);
             try
             {
-                if (File.Exists(Path.Combine(mailbox.Root, "STOP"))) settings.AllowControl = false;
-                mailbox.Publish(new JObject
+                bool communicated = BridgeTick.Run(
+                    () => { if (File.Exists(Path.Combine(mailbox.Root, "STOP"))) settings.AllowControl = false; },
+                    SimulationTick,
+                    () => mailbox.Publish(new JObject
                 {
-                    ["status"] = "ready", ["modVersion"] = "0.4.0",
+                    ["status"] = "ready", ["modVersion"] = ModVersion,
                     ["gameVersion"] = Application.version,
                     ["gameMode"] = GameManager.instance.gameMode.ToString(),
                     ["loading"] = GameManager.instance.isGameLoading,
                     ["controlEnabled"] = settings.AllowControl,
                     ["pid"] = System.Diagnostics.Process.GetCurrentProcess().Id
-                });
-                SimulationTick();
-                mailbox.Pump();
-                WorkflowTick();
+                }),
+                    () => mailbox.Pump(), WorkflowTick, MailboxContention);
+                if (communicated && mailboxContended)
+                {
+                    log.Info("Mailbox access recovered; control permission was not changed by recovery.");
+                    mailboxContended = false;
+                }
                 faulted = false;
             }
             catch (Exception e)
             {
-                FinishSimulation("bridge_fault");
                 settings.AllowControl = false;
+                FinishSimulation("bridge_fault");
                 if (!faulted) log.Error(e);
                 faulted = true;
             }
             return false;
+        }
+
+        private void MailboxContention(IOException error)
+        {
+            if (!mailboxContended)
+                log.Warn("Temporary mailbox file lock; retrying on subsequent ticks. " + error.Message);
+            mailboxContended = true;
         }
 
         private World RequireCity()
@@ -141,13 +156,13 @@ namespace CitiesIIAgentBridge
                 throw new InvalidOperationException("batch_in_progress_wait_or_cancel_batch");
             switch (command)
             {
-                case "ping": return new JObject { ["pong"] = true, ["modVersion"] = "0.4.0" };
+                case "ping": return new JObject { ["pong"] = true, ["modVersion"] = ModVersion };
                 case "get_capabilities": return new JObject
                 {
                     ["read"] = new JArray("ping", "get_capabilities", "get_city_state", "get_camera", "get_selected", "inspect_entity", "get_water_facilities"),
                     ["control"] = new JArray("set_camera", "set_simulation_speed", "build_road", "build_network", "upgrade_network", "zone_rectangle", "clear_zoning", "place_building", "relocate_building", "demolish", "purchase_tiles", "set_tax", "set_service_budget", "save_checkpoint", "batch_execute"),
                     ["constructionQueries"] = new JArray("get_build_prefabs", "get_prefab_details", "get_network", "get_network_edges", "trace_network", "get_zone_cells", "get_operation", "get_batch", "get_city_management", "get_services", "sample_terrain", "get_tiles", "get_buildings", "diagnose_connections"),
-                    ["buildVersion"] = "0.4.0", ["liveValidation"] = "v0.4_additions_require_live_validation",
+                    ["buildVersion"] = ModVersion, ["liveValidation"] = "v0.4.2_object_placement_requires_live_validation",
                     ["planning"] = new JArray("get_city_map","get_city_diagnostics","find_building_sites","preview_building","plan_neighborhood","execute_neighborhood","get_neighborhood_plan"),
                     ["simulation"] = new JArray("pause_for_analysis","simulate_step","get_simulation_step","cancel_simulation_step","cancel_batch"),
                     ["analysisPausesGame"] = true,
@@ -373,8 +388,3 @@ namespace CitiesIIAgentBridge
         }
     }
 }
-
-
-
-
-

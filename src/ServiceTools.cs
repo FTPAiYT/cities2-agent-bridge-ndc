@@ -49,10 +49,13 @@ namespace CitiesIIAgentBridge
         private float maxSnapDistance;
         public void Begin(ObjectPrefab building, ControlPoint p, int maxCost, Entity move, bool preview = false, ControlPoint[] alternatives = null, bool demolish = false, float snapDistance = 32)
         {
+            var requestedPrefab = World.GetExistingSystemManaged<PrefabSystem>().GetEntity(building);
+            if (move != Entity.Null && (!EntityManager.HasComponent<PrefabRef>(move) || EntityManager.GetComponentData<PrefabRef>(move).m_Prefab != requestedPrefab))
+                throw new InvalidOperationException("relocation_prefab_mismatch");
             operation = ConstructionAccess.Begin(move == Entity.Null ? "building" : "relocate");
             point = p; budget = maxCost; stage = frames = 0; moved = move;
             before = NativeBuild.Buildings(EntityManager); deadline = DateTime.UtcNow.AddSeconds(30);
-            expectedPrefab = World.GetExistingSystemManaged<PrefabSystem>().GetEntity(building);
+            expectedPrefab = requestedPrefab;
             candidates = alternatives ?? new[] { p }; candidateIndex = 0; previewOnly = preview; allowDemolition = demolish; applied = false; maxSnapDistance = snapDistance;
             ConstructionAccess.Results[operation]["attempts"] = new JArray();
             prefab = building; mode = move == Entity.Null ? Mode.Create : Mode.Move;
@@ -73,6 +76,10 @@ namespace CitiesIIAgentBridge
                 if (ConstructionAccess.Allowed?.Invoke() != true || DateTime.UtcNow > deadline) throw new InvalidOperationException("stopped_or_timed_out");
                 if (stage == 0)
                 {
+                    // ObjectToolSystem.OnUpdate normally resets move/upgrade state and updates
+                    // m_Prefab. We bypass that input-driven method, so do it before every preview.
+                    ObjectPlacementState.Prepare(typeof(ObjectToolSystem), this, Entity.Null, moved,
+                        World.GetExistingSystemManaged<PrefabSystem>().GetPrefab<ObjectPrefab>(expectedPrefab));
                     point = candidates[candidateIndex];
                     GetAvailableSnapMask(out m_SnapOnMask,out m_SnapOffMask);
                     m_SnapOffMask &= ~(Snap.NetSide | Snap.Shoreline | Snap.ExistingGeometry);
@@ -109,6 +116,7 @@ namespace CitiesIIAgentBridge
                             if(t.m_Original!=Entity.Null && t.m_Original!=moved && (t.m_Flags&TempFlags.Delete)!=0 && EntityManager.HasComponent<Game.Buildings.Building>(t.m_Original))
                                 throw new InvalidOperationException("would_demolish_existing_building");
                     }
+                    ValidateBuildingPreview();
                     ConstructionAccess.Results[operation]["previewCost"] = NativeBuild.Cost(World, budget);
                     ConstructionAccess.Results[operation]["snappedPosition"] = new JObject{["x"]=point.m_Position.x,["y"]=point.m_Position.y,["z"]=point.m_Position.z};
                     ConstructionAccess.Results[operation]["snappedRotation"] = new JArray(point.m_Rotation.value.x,point.m_Rotation.value.y,point.m_Rotation.value.z,point.m_Rotation.value.w);
@@ -122,12 +130,42 @@ namespace CitiesIIAgentBridge
                     if (!before.Contains(e) && EntityManager.HasComponent<PrefabRef>(e) && EntityManager.GetComponentData<PrefabRef>(e).m_Prefab == expectedPrefab && EntityManager.HasComponent<Game.Objects.Transform>(e) && math.distance(EntityManager.GetComponentData<Game.Objects.Transform>(e).m_Position,point.m_Position)<8)
                     { var row=NativeBuild.Id(e); row["roadEdge"]=NativeBuild.Id(EntityManager.GetComponentData<Game.Buildings.Building>(e).m_RoadEdge); created.Add(row); }
                 ConstructionAccess.Results[operation]["createdBuildings"] = created;
-                bool movedSuccessfully = moved != Entity.Null && EntityManager.Exists(moved) && EntityManager.HasComponent<Game.Objects.Transform>(moved) && Unity.Mathematics.math.distance(EntityManager.GetComponentData<Game.Objects.Transform>(moved).m_Position, point.m_Position) < 16;
+                bool movedSuccessfully = moved != Entity.Null && EntityManager.Exists(moved) && EntityManager.HasComponent<PrefabRef>(moved) && EntityManager.GetComponentData<PrefabRef>(moved).m_Prefab == expectedPrefab && EntityManager.HasComponent<Game.Objects.Transform>(moved) && Unity.Mathematics.math.distance(EntityManager.GetComponentData<Game.Objects.Transform>(moved).m_Position, point.m_Position) < 16;
                 if (created.Count == 0 && !movedSuccessfully) throw new InvalidOperationException("building_change_not_observed");
                 Finish("complete");
             }
             catch (Exception e) { Finish("failed", e.Message); }
             return deps;
+        }
+        private void ValidateBuildingPreview()
+        {
+            var entries = new List<BuildingPreviewEntry>();
+            var roots = new JArray();
+            using (var q = EntityManager.CreateEntityQuery(ComponentType.ReadOnly<Temp>()))
+            using (var entities = q.ToEntityArray(Allocator.Temp)) foreach (var entity in entities)
+            {
+                var temp = EntityManager.GetComponentData<Temp>(entity);
+                var prefabEntity = EntityManager.HasComponent<PrefabRef>(entity) ? EntityManager.GetComponentData<PrefabRef>(entity).m_Prefab : Entity.Null;
+                bool originalBuilding = temp.m_Original != Entity.Null && EntityManager.HasComponent<Game.Buildings.Building>(temp.m_Original);
+                bool building = EntityManager.HasComponent<Game.Buildings.Building>(entity) || EntityManager.HasComponent<BuildingData>(prefabEntity) || originalBuilding;
+                if (!building || EntityManager.HasComponent<Owner>(entity) || (originalBuilding && EntityManager.HasComponent<Owner>(temp.m_Original))) continue;
+                entries.Add(new BuildingPreviewEntry {
+                    PrefabMatches = prefabEntity == expectedPrefab,
+                    HasOriginal = temp.m_Original != Entity.Null,
+                    OriginalMatches = moved != Entity.Null && temp.m_Original == moved,
+                    Create = (temp.m_Flags & TempFlags.Create) != 0,
+                    Modify = (temp.m_Flags & TempFlags.Modify) != 0,
+                    Delete = (temp.m_Flags & TempFlags.Delete) != 0,
+                    Cancel = (temp.m_Flags & TempFlags.Cancel) != 0
+                });
+                roots.Add(new JObject { ["entity"] = NativeBuild.Id(entity), ["prefab"] = NativeBuild.Id(prefabEntity), ["original"] = NativeBuild.Id(temp.m_Original), ["flags"] = temp.m_Flags.ToString() });
+            }
+            var result = ConstructionAccess.Results[operation];
+            result["expectedPrefab"] = NativeBuild.Id(expectedPrefab);
+            result["expectedOriginal"] = NativeBuild.Id(moved);
+            result["previewBuildings"] = roots;
+            var error = BuildingPreviewSafety.Validate(entries, moved != Entity.Null, allowDemolition);
+            if (error != null) throw new InvalidOperationException(error);
         }
         private bool RetryCandidate(string error,JArray errors)
         {

@@ -6,6 +6,22 @@ param(
     [string]$MailboxPath = (Join-Path $env:LOCALAPPDATA 'CitiesIIAgentBridge')
 )
 $ErrorActionPreference = 'Stop'
+function Read-MailboxText([string]$Path) {
+    # Permit atomic replacement while reading a complete snapshot from the open handle.
+    $stream = [IO.FileStream]::new($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read,
+        ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+    $reader = $null
+    try {
+        $reader = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8, $true)
+        return $reader.ReadToEnd()
+    } finally {
+        if ($null -ne $reader) { $reader.Dispose() } else { $stream.Dispose() }
+    }
+}
+function Test-MailboxReadContention($ErrorRecord) {
+    $cause = $ErrorRecord.Exception.GetBaseException()
+    return $cause -is [IO.IOException] -and (($cause.HResult -band 0xffff) -in @(32,33))
+}
 function Record-JournalEvent($text,$requestId,$result) {
     # Logging failure must never change command delivery or cause a mutation retry.
     if(!(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'journals\active.json'))){return}
@@ -25,7 +41,7 @@ $sessionPath = Join-Path $MailboxPath 'session.json'
 # Heartbeat replacement can briefly make the file unavailable; retry only this read,
 # before generating or sending any command, so mutations are never replayed.
 for ($heartbeatAttempt = 0; $heartbeatAttempt -lt 10; $heartbeatAttempt++) {
-    try { $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json; break }
+    try { $session = Read-MailboxText $sessionPath | ConvertFrom-Json; break }
     catch { if ($heartbeatAttempt -eq 9) { throw }; Start-Sleep -Milliseconds 50 }
 }
 if ($session.status -ne 'ready' -or ([DateTimeOffset]::UtcNow - [DateTimeOffset]::Parse($session.heartbeatUtc)).TotalSeconds -gt 10) {
@@ -47,7 +63,13 @@ Record-JournalEvent "Sent $Command (request $id). Completion is not yet confirme
 $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds + 2)
 while ([DateTime]::UtcNow -lt $deadline) {
     if (Test-Path -LiteralPath $responsePath) {
-        $responseText=Get-Content -LiteralPath $responsePath -Raw
+        try { $responseText=Read-MailboxText $responsePath }
+        catch {
+            if (!(Test-MailboxReadContention $_)) { throw }
+            # Keep polling this response ID within the original deadline; never resend.
+            Start-Sleep -Milliseconds 50
+            continue
+        }
         try {
             $response=$responseText|ConvertFrom-Json
             $summary=@{ok=$response.ok;status=$response.result.status;operationId=$response.result.id;error=$response.error}

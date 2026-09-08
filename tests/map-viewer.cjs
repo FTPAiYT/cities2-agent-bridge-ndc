@@ -1,8 +1,8 @@
 const fs=require('fs');
 const path=require('path');
-const {chromium}=require('C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require('playwright');
 (async()=>{
- const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+ const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{})});
  try{
   const page=await browser.newPage({viewport:{width:1200,height:800}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
@@ -15,7 +15,7 @@ const {chromium}=require('C:/Users/PC/.cache/codex-runtimes/codex-primary-runtim
   if(!(await page.locator('#details').textContent()).includes('Test School <safe>'))throw Error('Building inspection failed');
   const original=await page.locator('#map').getAttribute('viewBox');
   await page.mouse.move(700,400);await page.mouse.wheel(0,-100);
-  if(await page.locator('#map').getAttribute('viewBox')===original)throw Error('Zoom failed');
+  await page.waitForFunction(previous=>document.querySelector('#map').getAttribute('viewBox')!==previous,original);
   await page.locator('#reset').click();
   if(await page.locator('#map').getAttribute('viewBox')!==original)throw Error('Fit failed');
   await page.locator('[data-layer="Roads"]').uncheck();
@@ -26,6 +26,7 @@ const {chromium}=require('C:/Users/PC/.cache/codex-runtimes/codex-primary-runtim
   const downloadPromise=page.waitForEvent('download');await page.locator('#export').click();const download=await downloadPromise;
   const downloadPath=await download.path();const exported=fs.readFileSync(downloadPath,'utf8');
   if(exported.includes('layer-Roads')||!exported.includes('layer-Plan'))throw Error('Export does not respect visibility');
+  fs.mkdirSync(path.resolve(__dirname,'../artifacts'),{recursive:true});
   await page.screenshot({path:path.resolve(__dirname,'../artifacts/map-viewer-test.png')});
   if(errors.length)throw Error(errors.join('\n'));
   console.log('PASS: map load, safe building details, zoom, fit, layers, plan overlay, SVG export; no browser errors. Synthetic fixture only.');
