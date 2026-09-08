@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Collections.Generic;
+using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -48,8 +49,6 @@ namespace CitiesIIAgentBridge
                 string id = Path.GetFileNameWithoutExtension(path);
                 if (!Guid.TryParseExact(id, "N", out _)) continue;
                 string responsePath = Path.Combine(Responses, id + ".json");
-                // Completed request IDs are never executed twice, even if resubmitted.
-                if (File.Exists(responsePath)) { File.Delete(path); continue; }
                 if (pendingResponses.TryGetValue(id, out var pending))
                 {
                     AtomicWrite(responsePath, pending);
@@ -57,6 +56,9 @@ namespace CitiesIIAgentBridge
                     File.Delete(path);
                     continue;
                 }
+                // A pending result must be published before treating a response file as complete.
+                // Completed request IDs are never executed twice, even if resubmitted.
+                if (File.Exists(responsePath)) { File.Delete(path); continue; }
                 JObject response = new JObject
                 {
                     ["protocol"] = Protocol, ["id"] = id, ["session"] = Session,
@@ -65,8 +67,11 @@ namespace CitiesIIAgentBridge
                 try
                 {
                     if (new FileInfo(path).Length > 16384) throw new InvalidOperationException("request_too_large");
+                    string requestText;
+                    try { requestText = ReadSharedText(path); }
+                    catch (IOException e) when (IsSharingViolation(e)) { continue; }
                     JObject request;
-                    using (var reader = new JsonTextReader(new StringReader(File.ReadAllText(path))))
+                    using (var reader = new JsonTextReader(new StringReader(requestText)))
                     {
                         reader.DateParseHandling = DateParseHandling.None;
                         request = JObject.Load(reader);
@@ -104,13 +109,41 @@ namespace CitiesIIAgentBridge
         public static void AtomicWrite(string path, JObject value)
         {
             string temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            File.WriteAllText(temp, value.ToString(Formatting.Indented), new UTF8Encoding(false));
             try
             {
-                if (File.Exists(path)) File.Replace(temp, path, null);
-                else File.Move(temp, path);
+                File.WriteAllText(temp, value.ToString(Formatting.Indented), new UTF8Encoding(false));
+                RetrySharingViolation(() => {
+                    if (File.Exists(path)) File.Replace(temp, path, null);
+                    else File.Move(temp, path);
+                });
             }
             finally { if (File.Exists(temp)) File.Delete(temp); }
+        }
+
+        internal static bool IsSharingViolation(IOException error)
+        {
+            // Windows ERROR_SHARING_VIOLATION / ERROR_LOCK_VIOLATION only.
+            int code = error.HResult & 0xffff;
+            return code == 32 || code == 33;
+        }
+
+        internal static void RetrySharingViolation(Action action)
+        {
+            // Limit game-thread blocking to three 10ms waits. Longer locks retry next tick.
+            for (int attempt = 0; ; ++attempt)
+            {
+                try { action(); return; }
+                catch (IOException e) when (IsSharingViolation(e) && attempt < 3)
+                { Thread.Sleep(10); }
+            }
+        }
+
+        internal static string ReadSharedText(string path)
+        {
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete))
+            using (var reader = new StreamReader(stream, Encoding.UTF8, true))
+                return reader.ReadToEnd();
         }
     }
 }

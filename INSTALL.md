@@ -66,6 +66,8 @@ To uninstall, have the owner save and close the game. Remove only the installed 
 
 ## Troubleshooting
 
+- Temporary mailbox file lock: version 0.4.1 retries publication and resumes when the lock clears. STOP and bounded simulation deadlines are still checked. It never turns disabled controls back on.
+- Response timeout: a command may already have run. Inspect the response for the original request ID and the city state before deciding what to do; do not resubmit a mutation blindly.
 - Stale heartbeat: verify the game and mod are running; never replay a timed-out construction request blindly.
 - Controls disabled: enable the option after loading the city; check for an intentional STOP latch.
 - Locked prefab/native placement error: inspect current unlocks and native preview results; don't override game state.

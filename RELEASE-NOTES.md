@@ -1,29 +1,23 @@
-# Community preview — release notes
+# Community preview 0.4.1 — mailbox recovery
 
-Runtime source: Cities II Agent Bridge 0.4.0. Reference game: Windows Steam Cities: Skylines II 1.6.0f1. Exact Game.dll fingerprint is in artifacts/build-manifest.json.
+Temporary Windows sharing or lock violations while publishing the heartbeat previously reached the fatal-error handler and disabled bridge controls. Version 0.4.1 treats those transport errors as retryable. Reference game: Windows Steam Cities: Skylines II 1.6.0f1; the build manifest records the exact Game.dll fingerprint.
 
-## Gameplay evidence from the development build
+## Changes
 
-Road and industrial access construction, residential/office/industrial zoning, native service-building placement, underground electricity connection, budget adjustment, bounded simulation, city diagnostics and verified checkpoint saves were exercised in Cities II Agent. Mailboxes and bus routes were placed through native computer use, not claimed as dedicated bridge commands. City-specific records are intentionally not distributed.
+- Shared mailbox readers permit atomic replacement. Publication retries briefly and defers to a later tick if the file remains locked.
+- STOP and bounded simulation deadlines are checked before mailbox publication. New requests and workflow steps wait when transport is blocked.
+- Completed responses remain pending until publication succeeds, without dispatching the command again. The PowerShell client waits for its original response ID under its existing timeout.
+- Recovery never enables controls automatically. Non-sharing errors still reach the fatal-error handler; game faults still disable controls.
+- Added Windows file-lock and real PowerShell client regression tests. Removed a machine-specific dependency path from the map-viewer test.
 
-## Community release changes
+## Verification
 
-- Same runtime source rebuilt without debug symbols, removing the developer PDB path from the binary. No game behavior changed for packaging.
-- Portable installer verifies package hashes and local game fingerprint, supports read-only CheckOnly and WhatIf, refuses installation while Cities2 is running, and backs up existing bridge files.
-- Agent guide, removal and stop instructions, portable test GamePath, and optional journaling scripts included.
-- Strict file allowlist excludes all personal transcripts, gameplay journals, city snapshots/saves, debug symbols, build response files and third-party game DLLs.
+The community DLL builds without debug symbols, with two existing obsolete-updater API warnings. All 66 mailbox, simulation/geometry, recovery and PowerShell lock checks passed, along with the standalone client, map export, journal, map-viewer browser and API contract checks. See VALIDATION.txt for the validation scope.
 
-## Verification boundaries
-
-Compilation succeeded with two existing obsolete-updater API warnings. This community binary has not been loaded in-game, and installation has not been verified on a separate PC. No game was restarted or controlled to prepare the release. Offline package/client/journal/mailbox validation is recorded in VALIDATION.txt inside the release ZIP. The existing map-viewer browser tests were not rerun for this packaging-only change.
+This rebuilt community DLL has not been loaded in-game or installed on another PC. Offline tests do not establish in-game compatibility. No game was launched, controlled or modified to prepare this update.
 
 ## Known limitations
 
-`get_services` produced a NullReferenceException during the development session; use the available city diagnostics and game UI when it fails. Static neighborhood geometry checks can miss conflicts with existing pedestrian paths. A native placement rejection requires inspection, not blind retries.
+`get_services` previously produced a NullReferenceException; use the available city diagnostics and game UI when it fails. Static neighborhood geometry checks can miss conflicts with existing pedestrian paths. A native placement rejection requires inspection, not blind retries.
 
-Controls reset off on city load. Analysis commands pause when authorized. Native placement can fail; a queued operation is not completion. Entity IDs are session-specific. Batch work is not transactional. Geometry suggestions do not guarantee a valid native placement. Simulation and traffic need observation after construction. The exposed command set does not cover every game UI function. No compatibility guarantee exists for other game versions or mod combinations.
-
-
-## Standalone community build
-
-Assembly, namespaces, mailbox paths, tool IDs, save prefixes and documentation use neutral community names. The build is isolated from the development mod. Offline validation does not establish in-game compatibility; this binary has not been loaded in-game.
+Controls reset off on city load. Analysis commands pause when authorized. Native placement can fail; a queued operation is not completion. Entity IDs are session-specific. Batch work is not transactional. Geometry suggestions do not guarantee valid native placement. The command set does not cover every game UI function. Other game versions and mod combinations remain unverified.

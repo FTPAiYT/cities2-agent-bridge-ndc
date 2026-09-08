@@ -47,7 +47,9 @@ Includes compiled mod, source, installation and control scripts, command referen
 
 ## Compatibility and evidence
 
-Based on bridge 0.4.0, used in our Windows / Steam / Cities: Skylines II 1.6.0f1 sessions. Roads, zoning, service buildings, power connections, budgets, bounded simulation and checkpoint saves were exercised in that environment. This is not a claim that every exposed command works in every scenario.
+Version 0.4.1 adds recovery from temporary Windows mailbox file locks. A busy heartbeat file no longer disables controls; STOP and bounded simulation deadlines remain active, and pending responses are retained without replaying commands. Recovery never enables controls automatically.
+
+The earlier 0.4.0 development build was used in Windows / Steam / Cities: Skylines II 1.6.0f1 sessions for roads, zoning, service buildings, power connections, budgets, bounded simulation and checkpoint saves. The 0.4.1 recovery behavior has passed offline tests but has not been verified in-game. This is not a claim that every exposed command works in every scenario.
 
 This community DLL is rebuilt without debug symbols to remove the developer's embedded PDB path. This standalone community build uses neutral names for its assembly, namespaces, mailbox, tools and save prefixes. It compiles against the same game assembly fingerprint. The community binary and installer have not been tested on another person's PC or loaded into a fresh game session. See RELEASE-NOTES.md for package validation results. Other game versions and conflicting mods are unverified. The installer checks the local Game.dll fingerprint and refuses a mismatch.
 
