@@ -16,9 +16,9 @@ Temporary Windows sharing/lock violations defer publication instead of disabling
 
 ## Verification and limits
 
-Both private-development and neutral-community adapters compile against the reference Windows Steam Cities: Skylines II 1.6.0f1 assembly. All 90 offline checks pass, including 24 new placement checks. The native-state tests use a small boundary fixture; they are not an in-game construction run. This new DLL has not been loaded in-game, installed on another PC, or tested against other mods/game versions. Two existing obsolete-updater warnings remain.
+Both private-development and neutral-community adapters compile against the reference Windows Steam Cities: Skylines II 1.6.0f1 assembly. All 90 offline checks pass, including 24 new placement checks. A corresponding private 0.4.2 build passed the live move-A/create-B sequence, wrong-prefab relocation rejection, and creation after a native-rejected move preview. Observed entity identities, road connections and spending matched the requests. The test remained paused and unsaved.
 
-The public source update does not replace the latest published release ZIP. See VALIDATION.txt for current evidence and DEVELOPMENT.md for the required live reproduction before a binary release.
+This release supplies the rebuilt neutral community DLL, source, scripts and integrity manifests. The community DLL itself has not been loaded in-game or installed on another PC. Mid-operation tool interruption, consecutive creates without an intervening move attempt, explicit collateral demolition, and other mods/game versions remain untested live. Two existing obsolete-updater warnings remain. See VALIDATION.txt for evidence and DEVELOPMENT.md for the broader live acceptance checklist.
 
 ## Other limitations
 
