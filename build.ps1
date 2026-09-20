@@ -29,7 +29,7 @@ $rsp = Join-Path $out 'compile.rsp'
 & dotnet $compiler ('@' + $rsp)
 if ($LASTEXITCODE -ne 0) { throw 'Compilation failed' }
 $manifest = [ordered]@{
-    modVersion = '0.4.2'
+    modVersion = '0.4.3'
     builtUtc = [DateTime]::UtcNow.ToString('O')
     gameAssemblySha256 = (Get-FileHash -LiteralPath (Join-Path $managed 'Game.dll')).Hash
     dllSha256 = (Get-FileHash -LiteralPath (Join-Path $out 'CitiesIIAgentBridge.dll')).Hash

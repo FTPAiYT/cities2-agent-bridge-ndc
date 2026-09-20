@@ -12,6 +12,8 @@ This package grants no authority over the user's computer or game. Obtain explic
 
 Read INSTALL.md and COMMANDS.md. Verify the package first. Respect STOP; do not clear it without renewed permission. Keep analysis paused; use bounded simulation intervals, then inspect results. Do not query pause-producing analysis while an interval is intended to finish. Keep progress visible and report what completed, not merely what was queued.
 
+For bridge 0.4.3, follow every `nextOffset` from building and asset queries until null while the city stays paused. Discard collected pages if `citySession` changes. Check `complete` and `errors` on service responses, even when the request succeeds. Asset discovery does not imply placement support: check `bridgePlacementSupported` and `locked`. Loaded assemblies do not establish working mod integrations; consult `get_capabilities`.
+
 Start from live state. IDs and coordinates in examples are placeholders. Preserve a budget reserve, use preview/maxCost limits, and verify asynchronous operations. A failed batch leaves earlier work in place; inspect before retrying. Save a named checkpoint before major changes and verify completion. At the agreed end, save and leave paused unless instructed otherwise.
 
 Optional journaling: `journal.ps1 start -Title 'City session'`, then `journal.ps1 note -Text 'Visible progress update'`, and `journal.ps1 finish`. Record observations, actions, results and concise explanations, never private reasoning. Transcript import requires a user-authorized, verified supported-format path; do not search other chats by default. Share no local records without permission.

@@ -1,6 +1,6 @@
-# Command reference — 0.4.0
+# Command reference — 0.4.3
 
-48 commands are exposed by bridge 0.4.0. See RELEASE-NOTES.md for the tested subset and community build limitations. The client is `bridge.ps1 COMMAND -ArgsJson 'JSON'`; `commands.json` is the machine-readable command list. Analysis and construction pause first. With controls disabled, pause manually before inspection. Status polls are exempt so a bounded simulation can reach its stop condition.
+Bridge 0.4.3 exposes 48 commands. The shared visibility changes passed live checks in the development runtime on September 16, 2026; the separately compiled community binary has not been loaded in-game. See [validation](VALIDATION.txt). The client is `bridge.ps1 COMMAND -ArgsJson 'JSON'`; `commands.json` is the machine-readable command list. Analysis and construction pause first. With controls disabled, pause manually before inspection. Status polls are exempt so a bounded simulation can reach its stop condition.
 
 Coordinates are game-world metres. Obtain actual positions and IDs through inspection; do not reuse IDs across city sessions. Position objects use `x`, `z`, and optional `y` (terrain height is sampled when absent). Optional `index`/`version` attach a point to a node, edge, or zone block. Edge attachment also requires `curvePosition` between 0 and 1. Prefab arguments use `prefabIndex`/`prefabVersion` from `get_build_prefabs`.
 
@@ -10,10 +10,10 @@ Coordinates are game-world metres. Obtain actual positions and IDs through inspe
 | `get_capabilities` | Command groups, build version, control and validation status. |
 | `get_city_state` | Population, money, health, happiness, XP, time, simulation speed. |
 | `get_city_management` | City state, demand by category, tax rates, households, income/expense breakdowns. Financial source values are reported in native raw units. |
-| `get_build_prefabs` | Optional `filter`; network, building, zone, and service prefabs with IDs and lock status. |
+| `get_build_prefabs` | Optional `filter`, `kind`, `offset`, `limit`; paginated assets with IDs, lock status and placement support. See the pagination contract below. |
 | `get_prefab_details` | `index`, `version`; known native placement, capacity, and service data fields. |
-| `get_services` | Service IDs, budgets, building IDs, workers and workplaces. |
-| `get_buildings` | Optional name `filter`, `problemsOnly`; building positions, road and utility references, known service fields and shortfalls; up to 512 buildings. |
+| `get_services` | Service IDs, budgets, building IDs, workers and workplaces. Check `complete` and `errors` for partial results. |
+| `get_buildings` | Optional `filter`, `problemsOnly`, `offset`, `limit`, and spatial `x,z,radius`; paginated building details. Default 512 per page, maximum 4096. Follow `nextOffset` to completion. |
 | `diagnose_connections` | Same arguments as `get_buildings`, restricted to detected problems. Null connections and supply shortfalls are distinguished. |
 | `get_water_facilities` | Water producers and sewage outlets, positions and production/processing readings. |
 | `get_selected` | Inspect the selected entity. |
@@ -67,7 +67,7 @@ The batch is sequential, not transactional. A later failure leaves earlier succe
 
 ## Verification status
 
-The development 0.4.0 build was used in city-building sessions. This does not validate every exposed command. The community binary was rebuilt without debug symbols; see RELEASE-NOTES.md for its separate validation status.
+See VALIDATION.txt for current offline checks and the distinction between development-runtime evidence and community-binary verification.
 
 ## Added commands
 
@@ -102,7 +102,14 @@ Recommended loop:
 
 `advance.ps1` never automatically retries simulation. On a client deadline it requests cancellation once and reports if pause cannot be confirmed. A fully hung game thread cannot execute its watchdog until it resumes; the independent client deadline prevents indefinite waiting.
 
+## Building preview identity (0.4.2 and later)
 
+Creation and relocation validate the requested prefab and original entity before application or successful preview-only completion. Results include `expectedPrefab`, `expectedOriginal` and `previewBuildings`. A mismatch fails without application; inspect the result before retrying. `allowDemolition` permits collateral deletion only, never an unrelated relocation or modification.
 
-## Building preview identity (0.4.2 source)
-Creation and relocation validate the requested prefab and original entity before application or successful preview-only completion. Results include expectedPrefab, expectedOriginal and previewBuildings. A mismatch fails without application; inspect the result before retrying. allowDemolition permits collateral deletion only, never an unrelated relocation or modification.
+## Visibility changes in 0.4.3
+
+- `get_buildings` and `diagnose_connections`: optional `offset` (default0), `limit` (default512, max4096), and spatial `x,z,radius` together (radius >0, <=14000). Existing `filter` and `problemsOnly` remain. Results are sorted by entity index/version and include `total`, `truncated`, `nextOffset`, `citySession`. Follow `nextOffset` until null while the city stays paused; abandon collected pages when the city session changes. Road-disconnection warnings now require the prefab's RequireRoad flag.
+- `get_build_prefabs`: optional `kind` (`building`, `network`, `zone`, `service`, `tree`, `prop`, `surface`, `other`, `all`), `filter`, `offset`, `limit` (default4096, max20000). Default includes known categories; `all` includes internal prefab types too. Includes pagination metadata, `prefabType` and `bridgePlacementSupported`. Discovery does not imply supported placement; `locked` still applies.
+- `get_services`: service-prefab type guard; per-service exceptions appear in `errors` with `complete:false` instead of losing the whole response. Never interpret partial results as complete service coverage.
+- `get_capabilities`: explicit visibility coverage and relevant loaded assembly versions. Assembly presence does not prove successful mod initialization. Traffic lane-rule, full Building Use metrics and Road Builder configuration adapters remain unsupported.
+- City state's `dateMeaning` warns that raw simulation datetime differs from the displayed calendar. The existing `date` field is retained for compatibility, not corrected to a guessed calendar.

@@ -26,6 +26,8 @@ pwsh -NoProfile -File .\install.ps1 -GamePath 'D:\SteamLibrary\steamapps\common\
 
 Replace the example path. CheckOnly reads files and prints the destination; it neither installs nor communicates with the game. A fingerprint mismatch means this release is unverified against that game build: stop and report it; do not silently bypass the check.
 
+The 0.4.3 prebuilt package targets the Windows Steam 1.6.2f1 assembly. Game Pass / Microsoft Store and other builds may have a different fingerprint. If the owner wants a source rebuild, follow [DEVELOPMENT.md](DEVELOPMENT.md) to generate a separate package against their installed assemblies. Rebuilding needs a .NET SDK and does not establish runtime compatibility. Do not change the downloaded release's hashes to force installation.
+
 ## 2. Install
 
 If the game is open, ask the owner to save and close it. Never terminate it yourself. With installation authorized and the game closed:

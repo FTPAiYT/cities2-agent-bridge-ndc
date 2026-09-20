@@ -20,14 +20,19 @@ namespace CitiesIIAgentBridge
         {
             var w = RequireCity(); var em = w.EntityManager; var ps = w.GetExistingSystemManaged<PrefabSystem>(); var rows = new JArray();
             string filter = (string)args["filter"] ?? "";
+            string category = (string)args["kind"] ?? "";
+            var page = new QueryPage(args, 4096, 20000); int total = 0;
             using (var q = em.CreateEntityQuery(ComponentType.ReadOnly<PrefabData>()))
-            using (var es = q.ToEntityArray(Allocator.Temp)) foreach (var e in es)
+            using (var es = q.ToEntityArray(Allocator.Temp)) foreach (var e in es.OrderBy(e=>e.Index).ThenBy(e=>e.Version))
             {
-                if (!ps.TryGetPrefab<PrefabBase>(e, out var p) || (!(p is NetPrefab) && !(p is ZonePrefab) && !(p is BuildingPrefab) && !(p is ServicePrefab))) continue;
+                if (!ps.TryGetPrefab<PrefabBase>(e, out var p) || p == null) continue;
+                string kind = p is ZonePrefab ? "zone" : p is BuildingPrefab ? "building" : p is ServicePrefab ? "service" : p is NetPrefab ? "network" : em.HasComponent<TreeData>(e) ? "tree" : p is StaticObjectPrefab ? "prop" : p is SurfacePrefab ? "surface" : "other";
+                if (kind == "other" && category != "all" && category != "other") continue;
+                if (category != "" && category != "all" && !kind.Equals(category, StringComparison.OrdinalIgnoreCase)) continue;
                 if (p.name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
-                rows.Add(new JObject { ["index"] = e.Index, ["version"] = e.Version, ["name"] = p.name, ["kind"] = p is ZonePrefab ? "zone" : p is BuildingPrefab ? "building" : p is ServicePrefab ? "service" : "network", ["locked"] = IsPrefabLocked(em, e) });
+                if (page.Contains(total++)) rows.Add(new JObject { ["index"] = e.Index, ["version"] = e.Version, ["name"] = p.name, ["kind"] = kind, ["prefabType"] = p.GetType().FullName, ["locked"] = IsPrefabLocked(em, e), ["bridgePlacementSupported"] = p is BuildingPrefab || p is NetPrefab || p is ZonePrefab });
             }
-            return new JObject { ["prefabs"] = rows };
+            var result = page.Result("prefabs", rows, total); result["citySession"] = citySession; return result;
         }
         private T BuildPrefab<T>(World w, JObject args) where T : PrefabBase
         {
@@ -132,4 +137,3 @@ namespace CitiesIIAgentBridge
         }
     }
 }
-
