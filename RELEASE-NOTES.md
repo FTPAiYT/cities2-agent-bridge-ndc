@@ -1,4 +1,21 @@
-# Community preview 0.4.2 — placement state and mailbox recovery
+# Community preview 0.4.3 — service recovery and complete queries
+
+`get_services` could throw while enumerating prefabs, and building queries stopped after the first 512 results. Version 0.4.3 ports the current development bridge's visibility changes to the community package.
+
+- Check the actual service prefab type before reading budgets. Return per-service failures as `errors` with `complete:false` instead of losing the entire response.
+- Add stable entity-index/version pagination to building and asset queries with `offset`, `limit`, `total`, `truncated`, `nextOffset` and `citySession`. Add spatial building filters. Agents must follow all pages while paused.
+- Discover trees, props and surfaces with category filters, prefab types and explicit `bridgePlacementSupported` flags. Discovery alone does not make an asset placeable.
+- Respect a prefab's road requirement before reporting a disconnected building, avoiding false scenery warnings.
+- Report missing mod integrations and relevant loaded assemblies, and label raw simulation dates without pretending they match the displayed calendar.
+- Build the community binary against Windows Steam 1.6.2f1. Add an explicit allowlisted packaging script and isolated installer tests, including a documented source-rebuild path for other game installations.
+
+The shared 0.4.3 logic passed live development-runtime checks on September 16, 2026: complete service results, building pagination, asset category samples and a scenery warning check. The neutral community build compiles, all 102 core offline checks pass, and client, journal, native API and isolated installer checks pass. This separately compiled community DLL has not been loaded in-game or tested on another PC. See VALIDATION.txt for the precise scope. The 0.4.2 placement and mailbox repairs remain included.
+
+Known gaps: reported invalid water values from `sample_terrain` remain unresolved. Fertility, ore, oil, fish and groundwater sampling is not included. Traffic lane rules, full Building Use metrics and Road Builder configuration remain unsupported. External Game Pass / Microsoft Store 1.6.2.0 source-build feedback does not establish compatibility of this prebuilt DLL; the installer retains its exact assembly-fingerprint check.
+
+---
+
+# Community preview 0.4.2 — placement state and mailbox recovery (historical)
 
 Creating a new building after relocating another could retain the relocation target. The bridge calls native snapping and preview generation directly, bypassing the native update loop that clears that state. A new-building request could therefore preview a modification of the previously moved building.
 

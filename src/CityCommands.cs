@@ -72,16 +72,22 @@ namespace CitiesIIAgentBridge
         }
         private JObject Services(JObject args)
         {
-            var w = RequireCity(); var em = w.EntityManager; var system = w.GetExistingSystemManaged<CityServiceBudgetSystem>(); var ps = w.GetExistingSystemManaged<PrefabSystem>(); var rows = new JArray();
+            var w = RequireCity(); var em = w.EntityManager; var system = w.GetExistingSystemManaged<CityServiceBudgetSystem>(); var ps = w.GetExistingSystemManaged<PrefabSystem>(); var rows = new JArray(); var errors = new JArray();
+            if (system == null || ps == null) throw new InvalidOperationException("service_system_not_ready");
             using (var q = em.CreateEntityQuery(ComponentType.ReadOnly<PrefabData>()))
             using (var es = q.ToEntityArray(Allocator.Temp)) foreach (var e in es)
             {
-                if (!ps.TryGetPrefab<ServicePrefab>(e, out var p)) continue;
+                if (!ps.TryGetPrefab<PrefabBase>(e, out var candidate) || !(candidate is ServicePrefab p)) continue;
+                try {
                 var workers = system.GetWorkersAndWorkplaces(e);
                 var buildings = system.GetServiceBuildings(e);
                 rows.Add(new JObject { ["index"] = e.Index, ["version"] = e.Version, ["name"] = p.name, ["budget"] = system.GetServiceBudget(e), ["buildings"] = buildings == null ? new JArray() : new JArray(buildings.Select(NativeBuild.Id)), ["workers"] = workers.x, ["workplaces"] = workers.y });
+                } catch (Exception error) {
+                    log.Warn("Service read failed for " + p.name + ": " + error);
+                    errors.Add(new JObject { ["index"] = e.Index, ["version"] = e.Version, ["name"] = p.name, ["error"] = error.GetType().Name + ": " + error.Message });
+                }
             }
-            return new JObject { ["services"] = rows };
+            return new JObject { ["services"] = rows, ["errors"] = errors, ["complete"] = errors.Count == 0, ["total"] = rows.Count + errors.Count };
         }
         private JObject SetServiceBudget(JObject args)
         {
@@ -124,12 +130,21 @@ namespace CitiesIIAgentBridge
         private JObject Buildings(JObject args)
         {
             var w = RequireCity(); var em = w.EntityManager; var rows = new JArray(); string filter = (string)args["filter"] ?? "";
-            foreach (var e in NativeBuild.Buildings(em))
+            var page = new QueryPage(args, 512, 4096); int total = 0;
+            bool spatial = args["radius"] != null || args["x"] != null || args["z"] != null;
+            float2 center = spatial ? new float2(RequiredFloat(args,"x"), RequiredFloat(args,"z")) : default;
+            float radius = spatial ? RequiredFloat(args,"radius") : 0;
+            if (spatial && (radius <= 0 || radius > 14000)) throw new ArgumentException("radius_must_be_0_to_14000");
+            foreach (var e in NativeBuild.Buildings(em).OrderBy(e=>e.Index).ThenBy(e=>e.Version))
             {
+                if (spatial && (!em.HasComponent<Game.Objects.Transform>(e) || math.distance(em.GetComponentData<Game.Objects.Transform>(e).m_Position.xz,center)>radius)) continue;
                 var info = Inspect(w, e); if (((string)info["prefab"] ?? "").IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
-                info["serviceDataRaw"] = Details(w,e);
                 var b = em.GetComponentData<Game.Buildings.Building>(e); info["roadEdge"] = NativeBuild.Id(b.m_RoadEdge); info["buildingFlags"] = b.m_Flags.ToString();
-                var issues = new JArray(); if (b.m_RoadEdge == Entity.Null || !em.Exists(b.m_RoadEdge)) issues.Add("no_road_connection");
+                var issues = new JArray();
+                Entity prefab = em.HasComponent<PrefabRef>(e) ? em.GetComponentData<PrefabRef>(e).m_Prefab : Entity.Null;
+                bool requiresRoad = prefab != Entity.Null && em.HasComponent<BuildingData>(prefab) && (em.GetComponentData<BuildingData>(prefab).m_Flags & BuildingFlags.RequireRoad) != 0;
+                info["requiresRoad"] = requiresRoad;
+                if (requiresRoad && (b.m_RoadEdge == Entity.Null || !em.Exists(b.m_RoadEdge))) issues.Add("no_road_connection");
                 if (em.HasComponent<WaterPipeBuildingConnection>(e))
                 {
                     var c = em.GetComponentData<WaterPipeBuildingConnection>(e);
@@ -145,12 +160,11 @@ namespace CitiesIIAgentBridge
                 if (em.HasComponent<Game.Buildings.WaterConsumer>(e)) { var c = em.GetComponentData<Game.Buildings.WaterConsumer>(e); if (c.m_FulfilledFresh < c.m_WantedConsumption) issues.Add("fresh_water_shortfall"); if (c.m_FulfilledSewage < c.m_WantedConsumption) issues.Add("sewage_shortfall"); }
                 if (em.HasComponent<Game.Buildings.ElectricityConsumer>(e)) { var c = em.GetComponentData<Game.Buildings.ElectricityConsumer>(e); if (c.m_FulfilledConsumption < c.m_WantedConsumption) issues.Add("electricity_shortfall"); }
                 info["issues"] = issues; if ((bool?)args["problemsOnly"] == true && issues.Count == 0) continue;
-                rows.Add(info); if (rows.Count >= 512) break;
+                if (page.Contains(total++)) { info["serviceDataRaw"] = Details(w,e); rows.Add(info); }
             }
-            return new JObject { ["buildings"] = rows, ["limit"] = 512 };
+            var result = page.Result("buildings", rows, total);
+            result["citySession"] = citySession;
+            return result;
         }
     }
 }
-
-
-

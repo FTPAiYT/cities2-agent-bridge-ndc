@@ -50,6 +50,7 @@ box.Publish(new JObject { ["status"] = "ready" });
 Check((string)JObject.Parse(File.ReadAllText(Path.Combine(root, "session.json")))["session"] == box.Session, "heartbeat replacement");
 Console.WriteLine($"{passed} checks passed. Test files: {root}");
 Console.WriteLine($"{PolicyTests.Run()} simulation and geometry checks passed.");
+Console.WriteLine($"{QueryPageTests.Run()} pagination checks passed.");
 Console.WriteLine($"{ObjectPlacementTests.Run()} object placement safety checks passed.");
 Console.WriteLine($"{RecoveryTests.Run()} mailbox recovery checks passed.");
 Console.WriteLine($"{MailboxClientTests.Run()} real PowerShell mailbox client checks passed.");

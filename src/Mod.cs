@@ -31,7 +31,7 @@ namespace CitiesIIAgentBridge
         private bool disposed;
         private bool faulted;
         private bool mailboxContended;
-        private const string ModVersion = "0.4.2";
+        private const string ModVersion = "0.4.3";
 
         public void OnLoad(UpdateSystem updateSystem)
         {
@@ -162,7 +162,17 @@ namespace CitiesIIAgentBridge
                     ["read"] = new JArray("ping", "get_capabilities", "get_city_state", "get_camera", "get_selected", "inspect_entity", "get_water_facilities"),
                     ["control"] = new JArray("set_camera", "set_simulation_speed", "build_road", "build_network", "upgrade_network", "zone_rectangle", "clear_zoning", "place_building", "relocate_building", "demolish", "purchase_tiles", "set_tax", "set_service_budget", "save_checkpoint", "batch_execute"),
                     ["constructionQueries"] = new JArray("get_build_prefabs", "get_prefab_details", "get_network", "get_network_edges", "trace_network", "get_zone_cells", "get_operation", "get_batch", "get_city_management", "get_services", "sample_terrain", "get_tiles", "get_buildings", "diagnose_connections"),
-                    ["buildVersion"] = ModVersion, ["liveValidation"] = "v0.4.2_object_placement_requires_live_validation",
+                    ["buildVersion"] = ModVersion, ["liveValidation"] = "community_binary_requires_live_validation",
+                    ["visibility"] = new JObject {
+                        ["buildingPagination"] = true, ["assetPagination"] = true,
+                        ["assetKinds"] = new JArray("building","network","zone","service","tree","prop","surface","other"),
+                        ["trafficLaneRules"] = false, ["buildingUseFullMetrics"] = false,
+                        ["roadBuilderConfiguration"] = false,
+                        ["dateMeaning"] = "Raw simulation DateTime; not the displayed game calendar"
+                    },
+                    ["relevantAssemblies"] = new JArray(AppDomain.CurrentDomain.GetAssemblies()
+                        .Where(a => new[] { "Traffic", "BuildingUse", "RoadBuilder", "FindIt", "PlopTheGrowables", "CityPlanningDraft", "CitiesIIAgentBridge" }.Contains(a.GetName().Name))
+                        .Select(a => new JObject { ["name"] = a.GetName().Name, ["version"] = a.GetName().Version.ToString(), ["status"] = "assembly_loaded_not_health_verified" })),
                     ["planning"] = new JArray("get_city_map","get_city_diagnostics","find_building_sites","preview_building","plan_neighborhood","execute_neighborhood","get_neighborhood_plan"),
                     ["simulation"] = new JArray("pause_for_analysis","simulate_step","get_simulation_step","cancel_simulation_step","cancel_batch"),
                     ["analysisPausesGame"] = true,
@@ -260,6 +270,7 @@ namespace CitiesIIAgentBridge
                 ["xp"] = city.XP, ["simulationFrame"] = simulation?.frameIndex,
                 ["selectedSpeed"] = simulation?.selectedSpeed,
                 ["date"] = time?.GetCurrentDateTime().ToString("O"),
+                ["dateMeaning"] = "Raw simulation DateTime; displayed game calendar may differ",
                 ["controlEnabled"] = settings.AllowControl, ["citySession"] = citySession
             };
             if (em.HasComponent<Population>(city.City))

@@ -20,7 +20,7 @@ The mod uses `CitiesIIAgentBridge.dll` and a dedicated `CitiesIIAgentBridge` mai
 
 ## What you need
 
-- Your own installed **Cities: Skylines II**, on **Windows**. This preview targets the Steam build **1.6.0f1** and checks the actual game assembly fingerprint.
+- Your own installed **Cities: Skylines II**, on **Windows**. This preview targets the Steam build **1.6.2f1** and checks the actual game assembly fingerprint.
 - **PowerShell 7** (`pwsh`). No administrator access or .NET SDK is needed for the supplied DLL.
 - An agent with **local file and command access**. A browser-only chat cannot operate this package. Separate computer-use access is needed for game UI actions outside the bridge's commands.
 
@@ -47,11 +47,13 @@ Includes compiled mod, source, installation and control scripts, command referen
 
 ## Compatibility and evidence
 
-The 0.4.2 community preview includes the compiled placement repair and mailbox recovery. It clears retained building-relocation state and rejects mismatched previews before application. Recovery from temporary Windows mailbox file locks keeps STOP and bounded simulation deadlines active; pending responses are retained without replaying commands. Recovery never enables controls automatically.
+The 0.4.3 community preview brings the current development bridge's service-read fix, complete building and asset pagination, tree/prop/surface discovery, scenery road-warning correction, and explicit capability limits. It retains the placement-state and mailbox recovery repairs from 0.4.2. Follow every `nextOffset` in one paused city session and check service `complete`/`errors`; a successful request may still contain partial results.
 
-The earlier 0.4.0 development build was used in Windows / Steam / Cities: Skylines II 1.6.0f1 sessions for roads, zoning, service buildings, power connections, budgets, bounded simulation and checkpoint saves. The 0.4.2 placement adapter and mailbox recovery passed 90 offline checks. A corresponding private 0.4.2 build also passed live relocation followed by different-prefab creation, rejection without spending, and creation after a rejected move preview. The separately built community binary has not been verified in-game. See VALIDATION.txt for the scope and remaining cases.
+The shared 0.4.3 logic passed development-runtime checks on Windows / Steam / Cities: Skylines II **1.6.2f1** on September 16, 2026. This separately compiled community DLL has not been loaded in-game or installed on another PC. See [VALIDATION.txt](VALIDATION.txt) for the exact test scope. The release is compiled without debug symbols and uses neutral assembly, namespace, mailbox, tool and save-prefix names.
 
-This community DLL is rebuilt without debug symbols to remove the developer's embedded PDB path. This standalone community build uses neutral names for its assembly, namespaces, mailbox, tools and save prefixes. It compiles against the same game assembly fingerprint. The community binary and installer have not been tested on another person's PC or loaded into a fresh game session. See RELEASE-NOTES.md for package validation results. Other game versions and conflicting mods are unverified. The installer checks the local Game.dll fingerprint and refuses a mismatch.
+The installer checks the actual `Game.dll` fingerprint and refuses a mismatch. A contributor reports sustained use of an earlier source build on Game Pass / Microsoft Store 1.6.2.0 after rebuilding; that is external evidence, not verification of this binary. See [DEVELOPMENT.md](DEVELOPMENT.md) for rebuilding against another installation.
+
+Known gaps: reported invalid `sample_terrain` water values remain unresolved; fertility, ore, oil, fish and groundwater sampling is not included. Traffic lane rules, full Building Use metrics and Road Builder configuration remain unsupported. Broader asset discovery does not imply placement support. The raw simulation date can differ from the displayed game calendar.
 
 The bridge uses files under `%LOCALAPPDATA%\CitiesIIAgentBridge`; it opens no network listener. Other programs running under the same Windows account can access that mailbox. Enabling bridge controls permits construction, demolition, zoning, taxes, spending and saves within the game's supported operations. This is not a sandbox for an untrusted agent. Use an agent you trust and agree on scope before gameplay.
 
