@@ -1,4 +1,4 @@
-# Cities II Agent Bridge — community preview
+# Cities II Agent Bridge 0.5.0 - community preview
 
 **You must purchase and install Cities: Skylines II for this to work.** This download does not include the game, make it free, or work with the original Cities: Skylines. You supply the game; the bridge lets your agent interact with it.
 
@@ -47,7 +47,7 @@ Includes compiled mod, source, installation and control scripts, command referen
 
 ## Compatibility and evidence
 
-The 0.4.3 community preview brings the current development bridge's service-read fix, complete building and asset pagination, tree/prop/surface discovery, scenery road-warning correction, and explicit capability limits. It retains the placement-state and mailbox recovery repairs from 0.4.2. Follow every `nextOffset` in one paused city session and check service `complete`/`errors`; a successful request may still contain partial results.
+Version 0.5.0 retains the current development bridge's service-read fix, complete building and asset pagination, tree/prop/surface discovery, scenery road-warning correction, and explicit capability limits. It also retains the placement-state and mailbox recovery repairs from 0.4.2. Follow every `nextOffset` in one paused city session and check service `complete`/`errors`; a successful request may still contain partial results.
 
 The shared 0.4.3 logic passed development-runtime checks on Windows / Steam / Cities: Skylines II **1.6.2f1** on September 16, 2026. This separately compiled community DLL has not been loaded in-game or installed on another PC. See [VALIDATION.txt](VALIDATION.txt) for the exact test scope. The release is compiled without debug symbols and uses neutral assembly, namespace, mailbox, tool and save-prefix names.
 
@@ -71,3 +71,9 @@ The game option resets off when a city loads. Enable it inside the loaded city, 
 - src / build.ps1 / tests: source and offline development checks.
 
 Keep the ZIP intact when sharing. Compare its SHA-256 against the checksum supplied alongside it by the distributor. Internal hashes detect corruption but are not a publisher signature. Nothing is uploaded automatically.
+
+## New in 0.5.0
+
+District census and map exports, district drawing/reshaping, service-district assignments, and improved water/resource/groundwater sampling. See [atlas usage](atlas/README.md) and [release notes](RELEASE-NOTES.md). Node.js is required for the atlas exporter.
+
+Known 0.5.0 issue: named district creation/editing can apply successfully and then report an EntityCommandBuffer naming-notification error. Inspect a fresh atlas and the operation result before any retry. Never replay an uncertain mutation. Boundary edits without a name have completed normally. See RELEASE-NOTES.md.

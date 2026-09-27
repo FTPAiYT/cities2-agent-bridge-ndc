@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('batch_execute','build_network','build_road','cancel_batch','cancel_simulation_step','clear_zoning','demolish','diagnose_connections','execute_neighborhood','find_building_sites','get_batch','get_build_prefabs','get_buildings','get_camera','get_capabilities','get_city_diagnostics','get_city_management','get_city_map','get_city_state','get_neighborhood_plan','get_network','get_network_edges','get_operation','get_prefab_details','get_selected','get_services','get_simulation_step','get_tiles','get_water_facilities','get_zone_cells','inspect_entity','pause_for_analysis','ping','place_building','plan_neighborhood','preview_building','purchase_tiles','relocate_building','sample_terrain','save_checkpoint','set_camera','set_service_budget','set_simulation_speed','set_tax','simulate_step','trace_network','upgrade_network','zone_rectangle','stop')]
+    [ValidateSet('create_district','edit_district','get_district_atlas','set_service_districts','batch_execute','build_network','build_road','cancel_batch','cancel_simulation_step','clear_zoning','demolish','diagnose_connections','execute_neighborhood','find_building_sites','get_batch','get_build_prefabs','get_buildings','get_camera','get_capabilities','get_city_diagnostics','get_city_management','get_city_map','get_city_state','get_neighborhood_plan','get_network','get_network_edges','get_operation','get_prefab_details','get_selected','get_services','get_simulation_step','get_tiles','get_water_facilities','get_zone_cells','inspect_entity','pause_for_analysis','ping','place_building','plan_neighborhood','preview_building','purchase_tiles','relocate_building','sample_terrain','save_checkpoint','set_camera','set_service_budget','set_simulation_speed','set_tax','simulate_step','trace_network','upgrade_network','zone_rectangle','stop')]
     [string]$Command = 'ping',
     [string]$ArgsJson = '{}',
     [ValidateRange(1,45)][int]$TimeoutSeconds = 15,
@@ -7,7 +7,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 function Read-MailboxText([string]$Path) {
-    # Permit atomic replacement while reading a complete snapshot from the open handle.
+    # DELETE sharing permits the mod's atomic replacement while this reader is open.
     $stream = [IO.FileStream]::new($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read,
         ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
     $reader = $null
@@ -66,7 +66,7 @@ while ([DateTime]::UtcNow -lt $deadline) {
         try { $responseText=Read-MailboxText $responsePath }
         catch {
             if (!(Test-MailboxReadContention $_)) { throw }
-            # Keep polling this response ID within the original deadline; never resend.
+            # Poll the SAME response ID; never resend a mutation after a read failure.
             Start-Sleep -Milliseconds 50
             continue
         }
@@ -82,6 +82,3 @@ while ([DateTime]::UtcNow -lt $deadline) {
 }
 Record-JournalEvent "$Command timed out; outcome unknown. Inspect before retrying." $id $null
 throw "Request $id timed out. It expires automatically; inspect before retrying a control command."
-
-
-

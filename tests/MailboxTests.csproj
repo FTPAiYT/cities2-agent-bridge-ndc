@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
   <ItemGroup>
+    <Compile Include="../src/DistrictGeometry.cs" /><Compile Include="DistrictDrawingTests.cs" />
+    <Compile Include="../src/DistrictCensus.cs" /><Compile Include="DistrictTests.cs" />
+    <Compile Include="../src/TerrainSampleValues.cs" /><Compile Include="TerrainSampleTests.cs" />
     <Compile Include="../src/QueryPage.cs" /><Compile Include="QueryPageTests.cs" />
     <Compile Include="../src/ObjectPlacementSafety.cs" /><Compile Include="ObjectPlacementTests.cs" />
     <Compile Include="../src/Mailbox.cs" /><Compile Include="Program.cs" />

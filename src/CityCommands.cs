@@ -101,20 +101,71 @@ namespace CitiesIIAgentBridge
             var w = RequireCity(); var points = args["points"] as JArray;
             if (points == null || points.Count < 1 || points.Count > 1024) throw new ArgumentException("points_must_contain_1_to_1024_locations");
             var terrain = w.GetExistingSystemManaged<TerrainSystem>().GetHeightData();
-            var water = w.GetExistingSystemManaged<WaterSystem>().GetVelocitiesSurfaceData(out var waterReady); waterReady.Complete();
+            // The full-precision surface contains depth, pollution and velocity. The separate
+            // downscaled flow reader is not a depth/pollution surface (and uses a half-float texture).
+            var water = w.GetExistingSystemManaged<WaterSystem>().GetSurfaceData(out var waterReady); waterReady.Complete();
             var pollution = w.GetExistingSystemManaged<GroundPollutionSystem>().GetMap(true, out var pollutionReady); pollutionReady.Complete();
             var air = w.GetExistingSystemManaged<AirPollutionSystem>().GetMap(true,out var airReady); airReady.Complete();
             var noise = w.GetExistingSystemManaged<NoisePollutionSystem>().GetMap(true,out var noiseReady); noiseReady.Complete();
+            var resourceSystem = w.GetExistingSystemManaged<NaturalResourceSystem>();
+            var groundwaterSystem = w.GetExistingSystemManaged<GroundWaterSystem>();
+            NativeArray<NaturalResourceCell> resources = default;
+            NativeArray<GroundWater> groundwater = default;
+            if (resourceSystem != null) { resources = resourceSystem.GetMap(true, out var ready); ready.Complete(); }
+            if (groundwaterSystem != null) { groundwater = groundwaterSystem.GetMap(true, out var ready); ready.Complete(); }
+            int resourceSize = NaturalResourceSystem.kTextureSize, groundwaterSize = GroundWaterSystem.kTextureSize;
             var rows = new JArray();
             foreach (JObject p in points)
             {
                 var position = new float3(RequiredFloat(p, "x"), 0, RequiredFloat(p, "z"));
                 if (math.any(math.abs(position.xz) > 14000)) throw new ArgumentException("point_out_of_bounds");
                 position.y = TerrainUtils.SampleHeight(ref terrain, position, out var normal);
-                var velocity = WaterUtils.SampleVelocity(ref water, position);
-                rows.Add(new JObject { ["position"] = Vector(position), ["normal"] = Vector(normal), ["waterDepth"] = WaterUtils.SampleDepth(ref water, position), ["waterPollution"] = WaterUtils.SamplePolluted(ref water, position), ["waterVelocity"] = new JArray(velocity.x,velocity.y), ["groundPollutionRaw"] = GroundPollutionSystem.GetPollution(position,pollution).m_Pollution, ["airPollutionRaw"] = AirPollutionSystem.GetPollution(position,air).m_Pollution, ["noisePollutionRaw"] = NoisePollutionSystem.GetPollution(position,noise).m_Pollution });
+                var row = new JObject { ["position"] = Vector(position), ["normal"] = Vector(normal), ["groundPollutionRaw"] = GroundPollutionSystem.GetPollution(position,pollution).m_Pollution, ["airPollutionRaw"] = AirPollutionSystem.GetPollution(position,air).m_Pollution, ["noisePollutionRaw"] = NoisePollutionSystem.GetPollution(position,noise).m_Pollution };
+                string waterStatus = !water.isCreated || !water.hasDepths || water.resolution.x < 2 || water.resolution.z < 2 || water.depths.Length < (long)water.resolution.x * water.resolution.z ? "unavailable" : "ok";
+                if (waterStatus == "ok") {
+                    var surfacePosition = WaterUtils.ToSurfaceSpace(ref water, position);
+                    if (surfacePosition.x < 0 || surfacePosition.z < 0 || surfacePosition.x >= water.resolution.x || surfacePosition.z >= water.resolution.z) waterStatus = "out_of_bounds";
+                }
+                if (waterStatus == "ok") {
+                    var velocity = WaterUtils.SampleVelocity(ref water, position);
+                    TerrainSampleValues.Water(row, waterStatus, WaterUtils.SampleDepth(ref water, position), WaterUtils.SamplePolluted(ref water, position), velocity.x, velocity.y);
+                } else TerrainSampleValues.Water(row, waterStatus);
+
+                bool resourceInBounds = TerrainSampleValues.TryCellIndex(position.x, position.z, CellMapSystem<NaturalResourceCell>.kMapSize, resourceSize, out int resourceIndex);
+                bool resourceReady = resources.IsCreated && resources.Length == (long)resourceSize * resourceSize;
+                row["naturalResourcesStatus"] = !resourceInBounds ? "out_of_bounds" : !resourceReady ? "unavailable" : "ok";
+                row["naturalResources"] = JValue.CreateNull();
+                if (resourceInBounds && resourceReady) {
+                    var cell = resources[resourceIndex];
+                    row["naturalResources"] = new JObject { ["cellIndex"] = resourceIndex,
+                        ["fertility"] = TerrainSampleValues.Resource(cell.m_Fertility.m_Base, cell.m_Fertility.m_Used),
+                        ["ore"] = TerrainSampleValues.Resource(cell.m_Ore.m_Base, cell.m_Ore.m_Used),
+                        ["oil"] = TerrainSampleValues.Resource(cell.m_Oil.m_Base, cell.m_Oil.m_Used),
+                        ["fish"] = TerrainSampleValues.Resource(cell.m_Fish.m_Base, cell.m_Fish.m_Used) };
+                }
+                bool groundwaterInBounds = TerrainSampleValues.TryCellIndex(position.x, position.z, CellMapSystem<GroundWater>.kMapSize, groundwaterSize, out int groundwaterIndex);
+                bool groundwaterReady = groundwater.IsCreated && groundwater.Length == (long)groundwaterSize * groundwaterSize;
+                row["groundwaterStatus"] = !groundwaterInBounds ? "out_of_bounds" : !groundwaterReady ? "unavailable" : "ok";
+                row["groundwater"] = JValue.CreateNull();
+                if (groundwaterInBounds && groundwaterReady) {
+                    var cell = groundwater[groundwaterIndex];
+                    row["groundwater"] = TerrainSampleValues.Groundwater(cell.m_Amount, cell.m_Max, cell.m_Polluted);
+                    row["groundwater"]["cellIndex"] = groundwaterIndex;
+                    if (cell.m_Amount < 0 || cell.m_Max < 0 || cell.m_Polluted < 0 || cell.m_Polluted > cell.m_Amount) row["groundwaterStatus"] = "invalid";
+                }
+                rows.Add(row);
             }
-            return new JObject { ["samples"] = rows };
+            return new JObject { ["samples"] = rows, ["citySession"] = citySession,
+                ["sampling"] = new JObject {
+                    ["waterSource"] = "WaterSystem.GetSurfaceData", ["waterDepthUnits"] = "metres",
+                    ["waterPollutionUnits"] = "native sampled value; not a percentage", ["waterVelocityUnits"] = "native world-space flow; not verified metres per second",
+                    ["resourceSampling"] = "containing_cell", ["resourceUnits"] = "native raw amounts; not percentages or guaranteed production",
+                    ["resourceCellSizeMetres"] = (double)CellMapSystem<NaturalResourceCell>.kMapSize / resourceSize,
+                    ["resourceMapSizeMetres"] = CellMapSystem<NaturalResourceCell>.kMapSize,
+                    ["groundwaterCellSizeMetres"] = (double)CellMapSystem<GroundWater>.kMapSize / groundwaterSize,
+                    ["groundwaterMapSizeMetres"] = CellMapSystem<GroundWater>.kMapSize,
+                    ["freshness"] = "Latest completed native CPU data; GPU water readback is asynchronous. No new simulation or GPU readback is forced."
+                } };
         }
         private JObject Tiles()
         {

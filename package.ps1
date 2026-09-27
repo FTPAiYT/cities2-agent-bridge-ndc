@@ -5,7 +5,7 @@ param(
     [string]$OutputRoot = (Join-Path $PSScriptRoot 'artifacts/releases')
 )
 $ErrorActionPreference = 'Stop'
-$version = '0.4.3'
+$version = '0.5.0'
 $output = [IO.Path]::GetFullPath($OutputRoot)
 $run = Join-Path $output ([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 $name = "CitiesIIAgentBridge-$version-community"
@@ -15,6 +15,7 @@ New-Item -ItemType Directory -Path $package -Force | Out-Null
 # Explicit allowlist: never copy local city records, logs, compiler response files,
 # game assemblies, credentials, debug symbols, or arbitrary working-tree files.
 $files = @(
+    'src/DistrictAtlas.cs','src/DistrictCensus.cs','src/DistrictDrawing.cs','src/DistrictGeometry.cs','src/TerrainSampleValues.cs','export-atlas.ps1','atlas/export.mjs','tests/DistrictTests.cs','tests/DistrictDrawingTests.cs','tests/TerrainSampleTests.cs','tests/DistrictApiTests.ps1','tests/TerrainApiTests.ps1','tests/atlas.test.mjs','atlas/README.md',
     'README.md','INSTALL.md','AGENTS.md','DEVELOPMENT.md','SHARING.md',
     'RELEASE-NOTES.md','VALIDATION.txt','CONTRIBUTING.md','COMMANDS.md','commands.json',
     'build.ps1','package.ps1','install.ps1','verify-package.ps1','verify-api.ps1',
