@@ -31,7 +31,7 @@ namespace CitiesIIAgentBridge
         private bool disposed;
         private bool faulted;
         private bool mailboxContended;
-        private const string ModVersion = "0.4.3";
+        private const string ModVersion = "0.5.0";
 
         public void OnLoad(UpdateSystem updateSystem)
         {
@@ -47,6 +47,7 @@ namespace CitiesIIAgentBridge
             ConstructionAccess.Allowed = () => !disposed && settings.AllowControl && !File.Exists(Path.Combine(mailbox.Root, "STOP"));
             updateSystem.UpdateAt<BridgeRoadTool>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<BridgeZoneTool>(SystemUpdatePhase.ToolUpdate);
+            updateSystem.UpdateAt<BridgeDistrictTool>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<BridgeObjectTool>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<BridgeBulldozeTool>(SystemUpdatePhase.ToolUpdate);
             GameManager.instance.onGamePreload += OnPreload;
@@ -59,7 +60,7 @@ namespace CitiesIIAgentBridge
         private void OnPreload(Purpose purpose, GameMode mode)
         {
             FinishSimulation("city_changed", false);
-            neighborhoodPlan = null;
+            neighborhoodPlan = null; districtAtlas = null;
             if (ConstructionAccess.Active != null) ConstructionAccess.Finish(ConstructionAccess.Active,"interrupted","city_changed");
             tileOperation = null; pendingTiles = null;
             if (batch != null && (string)batch["status"] == "running") { batch["status"] = "interrupted"; batch["error"] = "city_changed"; }
@@ -160,11 +161,15 @@ namespace CitiesIIAgentBridge
                 case "get_capabilities": return new JObject
                 {
                     ["read"] = new JArray("ping", "get_capabilities", "get_city_state", "get_camera", "get_selected", "inspect_entity", "get_water_facilities"),
-                    ["control"] = new JArray("set_camera", "set_simulation_speed", "build_road", "build_network", "upgrade_network", "zone_rectangle", "clear_zoning", "place_building", "relocate_building", "demolish", "purchase_tiles", "set_tax", "set_service_budget", "save_checkpoint", "batch_execute"),
+                    ["control"] = new JArray("create_district","edit_district","set_service_districts","set_camera", "set_simulation_speed", "build_road", "build_network", "upgrade_network", "zone_rectangle", "clear_zoning", "place_building", "relocate_building", "demolish", "purchase_tiles", "set_tax", "set_service_budget", "save_checkpoint", "batch_execute"),
                     ["constructionQueries"] = new JArray("get_build_prefabs", "get_prefab_details", "get_network", "get_network_edges", "trace_network", "get_zone_cells", "get_operation", "get_batch", "get_city_management", "get_services", "sample_terrain", "get_tiles", "get_buildings", "diagnose_connections"),
                     ["buildVersion"] = ModVersion, ["liveValidation"] = "community_binary_requires_live_validation",
                     ["visibility"] = new JObject {
+                        ["districtAtlas"] = true, ["districtServiceAssignments"] = true,
+                        ["districtBoundaryEditing"] = true,
                         ["buildingPagination"] = true, ["assetPagination"] = true,
+                        ["terrainNaturalResources"] = true, ["terrainGroundwater"] = true,
+                        ["terrainWaterSource"] = "full_precision_surface",
                         ["assetKinds"] = new JArray("building","network","zone","service","tree","prop","surface","other"),
                         ["trafficLaneRules"] = false, ["buildingUseFullMetrics"] = false,
                         ["roadBuilderConfiguration"] = false,
@@ -173,7 +178,7 @@ namespace CitiesIIAgentBridge
                     ["relevantAssemblies"] = new JArray(AppDomain.CurrentDomain.GetAssemblies()
                         .Where(a => new[] { "Traffic", "BuildingUse", "RoadBuilder", "FindIt", "PlopTheGrowables", "CityPlanningDraft", "CitiesIIAgentBridge" }.Contains(a.GetName().Name))
                         .Select(a => new JObject { ["name"] = a.GetName().Name, ["version"] = a.GetName().Version.ToString(), ["status"] = "assembly_loaded_not_health_verified" })),
-                    ["planning"] = new JArray("get_city_map","get_city_diagnostics","find_building_sites","preview_building","plan_neighborhood","execute_neighborhood","get_neighborhood_plan"),
+                    ["planning"] = new JArray("get_district_atlas","get_city_map","get_city_diagnostics","find_building_sites","preview_building","plan_neighborhood","execute_neighborhood","get_neighborhood_plan"),
                     ["simulation"] = new JArray("pause_for_analysis","simulate_step","get_simulation_step","cancel_simulation_step","cancel_batch"),
                     ["analysisPausesGame"] = true,
                     ["construction"] = "native_preview_and_apply", ["controlEnabled"] = settings.AllowControl
@@ -181,6 +186,10 @@ namespace CitiesIIAgentBridge
                 case "get_city_state": return CityState();
                 case "get_city_diagnostics": return Diagnostics(args);
                 case "get_city_map": return CityMap(args);
+                case "get_district_atlas": return DistrictAtlasPage(args);
+                case "create_district": return DrawDistrict(args, false);
+                case "edit_district": return DrawDistrict(args, true);
+                case "set_service_districts": return SetServiceDistricts(args);
                 case "find_building_sites": return FindBuildingSites(args);
                 case "preview_building": args["previewOnly"]=true; return PlaceBuilding(args);
                 case "plan_neighborhood": return PlanNeighborhood(args);

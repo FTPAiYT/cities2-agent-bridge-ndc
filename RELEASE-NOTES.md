@@ -1,3 +1,19 @@
+# Community preview 0.5.0 — district atlas and controls
+
+- Add district census by home location, age/education groups, road curves, building footprints, service capacities and assignments.
+- Export complete immutable snapshots to local JSON, CSV, Markdown and SVG without Carto. Node.js required for export.
+- Draw and reshape districts with native preview/apply, expected-boundary checks and operation polling.
+- Preview/apply guarded service-district assignments with expected-current checks and readback.
+- Correct water depth/pollution sampling to the full-precision surface; add natural-resource and groundwater values with explicit units/status.
+
+## Known issue: naming can report failure after application
+
+Known 0.5.0 issue: named district creation/editing can apply successfully and then report an EntityCommandBuffer naming-notification error. Inspect a fresh atlas and the operation result before any retry. Never replay an uncertain mutation. Boundary edits without a name have completed normally. See RELEASE-NOTES.md.
+
+Shared development-runtime checks verified atlas capture, district creation, boundary-only editing, service assignments and save/reload persistence. These checks do not establish effective service reach or every census edge case. Terrain/resource overlay comparison remains unverified. The neutral community DLL has not been loaded in-game or tested on another PC. This release does not install or modify the developer's game.
+
+## Earlier releases
+
 # Community preview 0.4.3 — service recovery and complete queries
 
 `get_services` could throw while enumerating prefabs, and building queries stopped after the first 512 results. Version 0.4.3 ports the current development bridge's visibility changes to the community package.

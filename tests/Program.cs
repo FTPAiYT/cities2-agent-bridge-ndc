@@ -51,6 +51,9 @@ Check((string)JObject.Parse(File.ReadAllText(Path.Combine(root, "session.json"))
 Console.WriteLine($"{passed} checks passed. Test files: {root}");
 Console.WriteLine($"{PolicyTests.Run()} simulation and geometry checks passed.");
 Console.WriteLine($"{QueryPageTests.Run()} pagination checks passed.");
+Console.WriteLine($"{DistrictTests.Run()} district census and assignment checks passed.");
+Console.WriteLine($"{DistrictDrawingTests.Run()} district drawing geometry and preview checks passed.");
+Console.WriteLine($"{TerrainSampleTests.Run()} terrain sampling value and boundary checks passed.");
 Console.WriteLine($"{ObjectPlacementTests.Run()} object placement safety checks passed.");
 Console.WriteLine($"{RecoveryTests.Run()} mailbox recovery checks passed.");
 Console.WriteLine($"{MailboxClientTests.Run()} real PowerShell mailbox client checks passed.");

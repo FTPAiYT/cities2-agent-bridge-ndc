@@ -56,7 +56,6 @@ namespace CitiesIIAgentBridge
                     File.Delete(path);
                     continue;
                 }
-                // A pending result must be published before treating a response file as complete.
                 // Completed request IDs are never executed twice, even if resubmitted.
                 if (File.Exists(responsePath)) { File.Delete(path); continue; }
                 JObject response = new JObject
@@ -123,13 +122,14 @@ namespace CitiesIIAgentBridge
         internal static bool IsSharingViolation(IOException error)
         {
             // Windows ERROR_SHARING_VIOLATION / ERROR_LOCK_VIOLATION only.
+            // Disk, permission and other I/O faults must not be mistaken for contention.
             int code = error.HResult & 0xffff;
             return code == 32 || code == 33;
         }
 
         internal static void RetrySharingViolation(Action action)
         {
-            // Limit game-thread blocking to three 10ms waits. Longer locks retry next tick.
+            // Bound main-thread blocking to three 10ms waits; longer locks retry next tick.
             for (int attempt = 0; ; ++attempt)
             {
                 try { action(); return; }
